@@ -1,0 +1,172 @@
+// NativeScript core theme
+// @see https://docs.nativescript.org/ui/theme
+@import '~nativescript-theme-core/scss/light';
+
+// Override variables here
+
+@import '~nativescript-theme-core/scss/index';
+
+// Global SCSS styling
+// @see https://docs.nativescript.org/ui/styling
+
+
+/* Login Screen */
+.page {
+  align-items: center;
+  flex-direction: column;
+}
+.page .form {
+  margin-left: 30;
+  margin-right: 30;
+  flex-grow: 2;
+  vertical-align: middle;
+}
+
+.page .form .img {
+  align-items: center;
+  vertical-align: middle;
+  horizontal-align: center;
+  margin-bottom: 80;
+}
+.page .form .btn {
+  background-color: #212529;
+  color: white;
+}
+/* Chats Screen */
+.chats {
+  background-color: #363E48;
+}
+.chats .item {
+  align-items: center;
+  padding-left: 15px;
+  padding-right: 15px;
+}
+.chats .item:hover {
+  background-color: #404954;
+}
+.chats .item.selected {
+  background-color: #404954;
+}
+.chats .item .left {
+  align-items: center;
+  background-color: white;
+  margin: 25px 17px;
+  border-radius: 25px;
+}
+
+
+.chats .item .text {
+  margin: 40px;
+}
+.chats .item .text .title{
+  font-size: 16px;
+  font-weight: bold;
+  color: white;
+}
+.chats .item .text .message{
+  font-size: 10px;
+  color:white/*#808080*/;
+  width: 190px;
+  margin-top: 10px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.chats .item .status {
+  padding: 10px;
+  float: right;
+
+}
+
+.chats .item .badge-danger {
+  color: #fff;
+  background-color: #dc3545;
+  display: inline-block;
+  padding: 10px;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: baseline;
+  border-radius: 10px;
+  transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.chats .item .badge-light {
+  color: #212529;
+  background-color: #f8f9fa;
+  display: inline-block;
+  padding: 10px;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: baseline;
+  border-radius: 0 10px 10px 0 ;
+}
+
+.chats .item .time {
+  padding: 5px;
+  color:white/*#808080*/;
+  font-size: 10px;
+}
+
+.chat .messages {
+  margin-top: 20px;
+  background-color: #F2F7F7;
+}
+
+.chat .messages {
+  padding-right: 30px;
+  padding-left: 30px;
+}
+
+.chat .messages .admin {
+  background-color: #63D381;
+}
+.chat .messages .client {
+  background-color: #91D5FF;
+}
+.chat .messages .admin, .chat .messages .client{
+  margin: 10px;
+  border-radius: 15px;
+}
+
+.chat .messages .msg {
+  color:white;
+  font-size: 14px;
+  padding-top: 30px;
+  padding-bottom: 30px;
+  padding-left: 35px;
+}
+
+.chat .messages .msg .download {
+  padding-top: 15px;
+  padding-left: 25px;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+
+.chat .messages .time {
+  color: #e6e6e6;
+  font-size: 10px;
+  padding-top: 8px;
+  padding-left: 35px;
+  padding-right: 15px;
+}
+
+.chat .attachment {
+  padding: 10px;
+  margin: 40px;
+}
+
+.chat .text {
+  background-color: transparent;
+  font-size: 14px;
+  padding-top: 40px;
+  padding-bottom: 30px;
+  padding-left: 35px;
+}
+
+.chat .input {
+  background-color: white;
+  border-radius: 15;
+}

@@ -1,0 +1,8 @@
+{
+  "android": {
+    "v8Flags": "--expose_gc"
+  },
+  "main": "main",
+  "name": "sitepower.io-mobile",
+  "version": "1.0.0"
+}
