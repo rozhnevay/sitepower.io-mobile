@@ -5,6 +5,7 @@ const imageSourceModule = require("tns-core-modules/image-source");
 const utilsModule = require("tns-core-modules/utils/utils");
 const mPicker = require("nativescript-mediafilepicker");
 const platform = require("tns-core-modules/platform");
+const dialogs = require("tns-core-modules/ui/dialogs");
 
 module.exports = {
     data() {
@@ -14,7 +15,15 @@ module.exports = {
     },
     template: `
     <Page class="chat" >
-        <ActionBar :title="chat.name" class="action-bar"><NavigationButton text="Назад" android.systemIcon="ic_menu_back" @tap="$navigateBack"/></ActionBar>
+        <ActionBar :title="chat.name" class="action-bar"><NavigationButton text="Назад" android.systemIcon="ic_menu_back" @tap="$navigateBack"/>
+         <ActionItem @tap="onShare"
+              ios.systemIcon="9" ios.position="left"
+              android.systemIcon="ic_dialog_email" android.position="actionBar"></ActionItem>
+          <ActionItem @tap="onDelete"
+              ios.systemIcon="16" ios.position="right"
+              text="Удалить" android.systemIcon="ic_menu_delete" android.position="actionBar">
+          </ActionItem>
+        </ActionBar>
         <FlexboxLayout flexDirection="column" justifyContent="flex-end" height="100%" class="messages">
             <ScrollView ref="scrollView"> 
                 <FlexboxLayout flexDirection="column" justifyContent="flex-end" >
@@ -60,6 +69,45 @@ module.exports = {
     },
     props: ['chat'],
     methods: {
+        onDelete() {
+            let that = this;
+            dialogs.prompt({
+                title: "",
+                message: "Удалить диалог?",
+                okButtonText: "Удалить",
+                neutralButtonText: "В СПАМ!",
+                cancelButtonText: "Отмена"
+            }).then(function (res) {
+                console.log("Dialog closed!");
+                console.log(res);
+
+                if (res.result) {
+                    store.dispatch('ACTIVE_CHAT_DELETE', "DELETED").then(() => {
+                        store.dispatch('CHATS_REQUEST').then(() => {
+                            console.log("qqq");
+                            that.$navigateTo(that.$ChatList, {clearHistory: true})
+                        }).catch(err => console.log(err.message))
+                    }).catch(err => console.log(err.message));
+                } else if (res.result === undefined) {
+                    store.dispatch('ACTIVE_CHAT_DELETE', "SPAM").then(() => {
+                        store.dispatch('CHATS_REQUEST').then(() => that.$navigateTo(that.$ChatList, {clearHistory: true})).catch(err => console.log(err.message))
+                    }).catch(err => console.log(err.message));
+                }
+            });
+        },
+        onShare() {
+            dialogs.confirm({
+                title: "",
+                message: "Отправить диалог на Ваш email?",
+                okButtonText: "Ок",
+                cancelButtonText: "Отмена"
+            }).then(function (result) {
+                console.log("Dialog closed!");
+                if (result) {
+                    store.dispatch('ACTIVE_CHAT_SEND');
+                }
+            });
+        },
         msgTime(msg) {
             return moment(msg.created).format('HH:mm');
         },

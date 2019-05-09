@@ -19,8 +19,5 @@ module.exports = {
                     this.$navigateTo(this.$Login,  {clearHistory: true});
                 });
         }
-    },
-    mounted() {
-        this.redirect();
     }
 };

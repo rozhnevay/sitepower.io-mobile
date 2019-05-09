@@ -5,10 +5,15 @@ const appSettings = require("application-settings");
 const cookie = require('cookie-parse');
 const SocketIO = require('nativescript-socketio').SocketIO;
 const formdata = require('nativescript-http-formdata');
+const platform = require("tns-core-modules/platform");
+const vibrate = require("nativescript-vibrate");
 
 let socketIO;
+let vibrator;
 
-//axios.defaults.baseURL = 'https://sitepower.herokuapp.com';
+const firebase = require("nativescript-plugin-firebase");
+const ln = require("nativescript-local-notifications").LocalNotifications;
+
 
 if(TNS_ENV !== 'production') {
   axios.defaults.baseURL = 'http://10.0.2.2:3000';
@@ -88,6 +93,24 @@ module.exports = new Vuex.Store({
     },
   },
   actions: {
+    ACTIVE_CHAT_SEND: ({commit, state, dispatch}) => {
+      return new Promise((resolve, reject) => {
+        axios.get("/api/chat/" + state.systemInfo.activeChatId + "/send").then((res) => {
+          resolve();
+        }).catch((err) => {
+          reject(err);
+        });
+      });
+    },
+    ACTIVE_CHAT_DELETE: ({commit, state, dispatch}, param) => {
+      return new Promise((resolve, reject) => {
+        axios.post("/api/chat/" + state.systemInfo.activeChatId, {class:param}).then((res) => {
+          resolve()
+        }).catch((err) => {
+          reject(err);
+        });
+      });
+    },
     SEND: ({commit, state, dispatch}, msg) => {
       return new Promise((resolve, reject) => {
         if (!msg) return;
@@ -137,17 +160,26 @@ module.exports = new Vuex.Store({
         .then(res => {
           commit('CHATS_STATUS', "Success");
           commit('CHATS', res.data.chats);
+          resolve();
         }).catch(err => {
           commit('CHATS_STATUS', "Error", err.message);
+          reject(err);
         })
       });
     },
     SOCKET_LOGIN:({commit, state, dispatch}, props) => {
       /*start socket.io*/
+      if (socketIO && socketIO.connected) {
+        return;
+      }
+      if (!vibrator) {
+        vibrator = new vibrate.Vibrate();
+      }
+
       const cookies =  cookie.parse(appSettings.getString("sitepower"));
       Object.keys(cookies).forEach(key => {
         if (key.split('.')[0] === "sitepower"){
-          socketIO = new SocketIO(axios.defaults.baseURL, {path:'/socket.io', query: 'session_id=' +  cookies[key].split('.')[0].split(':')[1]}/*headers: {'Cookie': appSettings.getString("sitepower")}*/);
+          socketIO = new SocketIO(axios.defaults.baseURL, {path:'/socket.io', query: 'session_id=' +  cookies[key].split('.')[0].split(':')[1] + '&device_id=' + appSettings.getString("sitepower.token")}/*headers: {'Cookie': appSettings.getString("sitepower")}*/);
 
           socketIO.connect();
           // console.log("connect");
@@ -164,7 +196,7 @@ module.exports = new Vuex.Store({
             chatItem = state.systemInfo.chats[chatId];
             if (chatItem) {
               // 1. Если это активный чат - пушаем в него сообщение
-              chatId === state.systemInfo.activeChatId ? state.systemInfo.messages.push(msg) : null;
+              chatId === state.systemInfo.activeChatId ? state.systemInfo.messages.push(msg) : vibrator.vibrate(300);
               // 2. Обновляем состояние чата
               Object.assign(chatItem, chat);
             } else {
@@ -183,9 +215,8 @@ module.exports = new Vuex.Store({
           commit('USER_NAME', res.data.name);
           commit('USER_ID', res.data.id);
           appSettings.setString("sitepower", res.headers['set-cookie'].toString());
+          dispatch('REGISTER_DEVICE');
           dispatch('SOCKET_LOGIN');
-
-
           resolve();
         }).catch((err) => {
           commit('AUTH_STATUS', "Error")
@@ -224,12 +255,34 @@ module.exports = new Vuex.Store({
           commit('USER_NAME', res.data.user.name);
           commit('USER_ID', res.data.id);
           dispatch('SOCKET_LOGIN');
+          dispatch('REGISTER_DEVICE');
           resolve();
         }).catch((err) => {
           commit('AUTH_STATUS', "Error")
           commit('USER_LOGGED_IN', false);
           commit('USER_NAME', "");
           commit('USER_ID', "");
+          reject(err);
+        });
+      });
+    },
+    REGISTER_DEVICE: ({commit, state, dispatch}, props) => {
+      return new Promise((resolve, reject) => {
+        const token = appSettings.getString("sitepower.token");
+        const pl = platform.isAndroid ? 'Android' : 'iOS';
+        axios.get("/api/device/" + token).then((res) => {
+          if (!res.data.id) {
+            axios.post("/api/device", {token, platform: pl});
+          } else if (res.data.user_id !== state.userInfo.id) {
+            axios.delete("/api/device/" + token)
+                .then(() => {
+                  axios.post("/api/device", {token, platform: pl});
+                })
+                .catch(err => console.log(err.message));
+
+          };
+          resolve();
+        }).catch((err) => {
           reject(err);
         });
       });
@@ -266,3 +319,46 @@ axios.interceptors.request.use(config => {
 (error) => {
   return Promise.reject(error);
 });
+
+/* Firebase */
+
+
+firebase.init({
+  onPushTokenReceivedCallback: function(token) {
+    appSettings.setString("sitepower.token", token);
+  },
+  onMessageReceivedCallback: function(message) {
+    pushNotification(message);
+  }
+}).then(
+    function () {
+      if (!appSettings.getString("sitepower.token") || appSettings.getString("sitepower.token") ===""){
+        firebase.getCurrentPushToken().then((token) => {
+          appSettings.setString("sitepower.token", token);
+        });
+      }
+    },
+    function (error) {
+      console.log("firebase.init error: " + error);
+    }
+);
+
+const pushNotification = (message) => {
+  ln.schedule([{
+    id: message.id,
+    title: message.title,
+    body: message.body,
+    thumbnail:true,
+    channel:"sitepower",
+    notificationLed:true,
+    at: new Date(),
+    actions: [{
+
+    }]
+  }]).then(()=> console.log("scheduled"))
+      .catch(err => console.log(err.message));
+
+}
+
+
+

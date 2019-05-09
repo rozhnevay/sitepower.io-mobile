@@ -5,8 +5,10 @@ const utilsModule = require("tns-core-modules/utils/utils");
 module.exports = {
     data() {
         return {
-            email : 'rozhnevay@gmail.com',
-            password : '1',
+            //email : 'rozhnevay@gmail.com',
+            //password : '1',
+            email : '',
+            password : '',
             loginError : ''
         };
     },

@@ -5,8 +5,8 @@ const utilsModule = require("tns-core-modules/utils/utils");
 
 module.exports = {
     template: `
-    <Page>
-        <ActionBar title="Онлайн-диалоги" class="action-bar">
+    <Page >
+        <ActionBar title="Онлайн-диалоги" class="action-bar" @swipe="onSwipe">
             
              <ActionItem @tap="goto"
                   ios.position="popup"
@@ -19,8 +19,10 @@ module.exports = {
                   text="Выход" android.position="popup"></ActionItem>     
                   
          </ActionBar>
-         <StackLayout v-if="chats.length > 0" orientation="vertical" width="100%">
-            <ListView class="chats" for="chat in chats" @itemTap="openChat">
+         
+         <StackLayout v-if="chats.length > 0" orientation="vertical" width="100%" >
+            <!--<ActivityIndicator v-if="busy" :busy="busy" color="black" class="left"/>-->
+            <ListView class="chats" for="chat in chats" @itemTap="openChat"  @swipe="onSwipe">
                 <v-template>
                     <GridLayout class="item" columns="2*,7*,2*,1*" rows="75" width="100%">
                         <AbsoluteLayout row="0" col="0" class="left"><Image left="17%" top="15%" width="100%" height="50%" class="img" src="~/assets/images/logo-lightning.png" stretch="none" ></Image></AbsoluteLayout>
@@ -48,16 +50,28 @@ module.exports = {
   `,
    computed: {
        chats() {
-
            let chatsArr = [];
            Object.keys(store.getters.CHATS).forEach(key => {
                store.getters.CHATS[key].id = key;
                chatsArr.push(store.getters.CHATS[key]);
            });
            return chatsArr;
+       },
+       busy() {
+           if (store.getters.CHATS_STATUS === "Loading") {
+               return true;
+           }
+           return false;
        }
    },
    methods: {
+       onSwipe(args) {
+           console.log("SWIPE")
+           console.log(args.direction)
+           if (args.direction === 8){
+               store.dispatch('CHATS_REQUEST');
+           }
+       },
        openChat(event){
            store.commit('ACTIVE_CHAT_ID', event.item.sitepower_id);
            store.dispatch('MESSAGES_REQUEST');

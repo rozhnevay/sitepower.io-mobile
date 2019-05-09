@@ -9,6 +9,7 @@ const About = require('./components/About');
 
 import VueDevtools from 'nativescript-vue-devtools'
 
+
 if(TNS_ENV !== 'production') {
   Vue.use(VueDevtools)
 }
