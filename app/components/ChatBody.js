@@ -145,7 +145,7 @@ module.exports = {
         send() {
             store.dispatch('SEND', this.msg).then(()=> this.msg = "").catch(/*err => console.log(err.message)*/);
         },
-        messageTap(msg) {
+        imageTap(msg) {
             if (msg.link ==="") return;
             msg.link = msg.link.replace("localhost", "10.0.2.2"); /*TODO: убрать*/
             utilsModule.openUrl(msg.link);

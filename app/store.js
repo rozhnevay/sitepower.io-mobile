@@ -179,7 +179,10 @@ module.exports = new Vuex.Store({
       const cookies =  cookie.parse(appSettings.getString("sitepower"));
       Object.keys(cookies).forEach(key => {
         if (key.split('.')[0] === "sitepower"){
-          socketIO = new SocketIO(axios.defaults.baseURL, {path:'/socket.io', query: 'session_id=' +  cookies[key].split('.')[0].split(':')[1] + '&device_id=' + appSettings.getString("sitepower.token")}/*headers: {'Cookie': appSettings.getString("sitepower")}*/);
+          if (!socketIO) {
+              socketIO = new SocketIO(axios.defaults.baseURL, {path:'/socket.io', query: 'session_id=' +  cookies[key].split('.')[0].split(':')[1] + '&device_id=' + appSettings.getString("sitepower.token")}/*headers: {'Cookie': appSettings.getString("sitepower")}*/);
+          }
+
 
           socketIO.connect();
           // console.log("connect");
@@ -253,7 +256,7 @@ module.exports = new Vuex.Store({
           commit('AUTH_STATUS', "Success")
           commit('USER_LOGGED_IN', true);
           commit('USER_NAME', res.data.user.name);
-          commit('USER_ID', res.data.id);
+          commit('USER_ID', res.data.user.id);
           dispatch('SOCKET_LOGIN');
           dispatch('REGISTER_DEVICE');
           resolve();
