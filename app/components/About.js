@@ -5,8 +5,8 @@ module.exports = {
              <FlexboxLayout class="page">
                 <StackLayout class="form" orientation="vertical" width="100%">
                       <Image src="~/assets/images/logo-black.png" stretch="none" class="img"></Image>
-                      <Label class="text-center">Онлайн-диалоги. v 1.0.2</Label>
-                      <Label class="text-center" marginTop="20">Напишите нам: info@sitepower.io</Label>
+                      <Label class="text-center">Онлайн-диалоги. v 1.0.3</Label>
+                      <!--<Label class="text-center" marginTop="20">Напишите нам: info@sitepower.io</Label>-->
                 </StackLayout>
             </FlexboxLayout>
         </Page>

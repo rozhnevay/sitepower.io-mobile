@@ -1,17 +1,8 @@
-const store = require('../store');
+
 const utilsModule = require("tns-core-modules/utils/utils");
 
 
 module.exports = {
-    data() {
-        return {
-            //email : 'rozhnevay@gmail.com',
-            //password : '1',
-            email : '',
-            password : '',
-            loginError : ''
-        };
-    },
     template: `
     <Page actionBarHidden="true">
         <FlexboxLayout class="page">
@@ -44,20 +35,39 @@ module.exports = {
         </FlexboxLayout>
     </Page>
   `,
+   data() {
+        return {
+            email : '',
+            password : '',
+            loginError : ''
+        };
+    },
    methods: {
        clickLogin() {
             if (this.email && this.password) {
 
-                store.dispatch('AUTH_LOGIN', {email: this.email, password: this.password})
-                    .then(() => this.$navigateTo(this.$ChatList,  {clearHistory: true}))
+
+                setTimeout(() => {
+                    if (this.$store.getters.AUTH_STATUS === "Loading") {
+                        this.$loader.show(this.$store.getters.INDICATOR_BLACK);
+                    }
+                }, 500);
+
+                this.$store.dispatch('AUTH_LOGIN', {email: this.email, password: this.password})
+                    .then(() => {
+                        this.$navigateTo(this.$ChatList,  {clearHistory: true})
+                    })
                     .catch(err => {
-                        this.loginError = (err.response && err.response.status === 400) ? "Неверное имя пользователя или пароль" : "Ошибка сервера"
+                        this.loginError = (err.response && err.response.status === 400) ? "Неверное имя пользователя или пароль" : "Ошибка сервера. Повторите попытку позже. При повторной ошибке отправьте запрос в техподдержку"
+                    })
+                    .finally(() => {
+                        this.$loader.hide();
                     });
 
             }
         },
        clickRegister() {
-           utilsModule.openUrl("https://app.sitepower.io/registration");
+           utilsModule.openUrl("https://app.sitepower.io/registration" );
        }
        ,
        clickForget() {

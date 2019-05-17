@@ -1,12 +1,11 @@
-const store = require('../store');
 const moment = require('moment');
 const utilsModule = require("tns-core-modules/utils/utils");
 
 
 module.exports = {
     template: `
-    <Page >
-        <ActionBar title="Онлайн-диалоги" class="action-bar" @swipe="onSwipe">
+    <Page @navigatedTo="onNavigated">
+        <ActionBar title="Онлайн-диалоги" class="action-bar">
             
              <ActionItem @tap="goto"
                   ios.position="popup"
@@ -21,8 +20,7 @@ module.exports = {
          </ActionBar>
          
          <StackLayout v-if="chats.length > 0" orientation="vertical" width="100%" >
-            <!--<ActivityIndicator v-if="busy" :busy="busy" color="black" class="left"/>-->
-            <ListView class="chats" for="chat in chats" @itemTap="openChat"  @swipe="onSwipe">
+            <RadListView class="chats" for="chat in chats" @itemTap="openChat"  pullToRefresh="true" @pullToRefreshInitiated="onPullToRefreshInitiated">
                 <v-template>
                     <GridLayout class="item" columns="2*,7*,2*,1*" rows="75" width="100%">
                         <AbsoluteLayout row="0" col="0" class="left"><Image left="17%" top="15%" width="100%" height="50%" class="img" src="~/assets/images/logo-lightning.png" stretch="none" ></Image></AbsoluteLayout>
@@ -38,11 +36,10 @@ module.exports = {
                         </FlexboxLayout>
                     </GridLayout>
                 </v-template>
-            </ListView>
+            </RadListView>
         </StackLayout>
         <StackLayout v-else class="form" orientation="vertical" width="100%">
             <Image src="~/assets/images/happy.png" stretch="aspectFit" class="img" alignSelf="center" width="50%" height="50%"></Image>
-            <Label class="text-center" textWrap="true">Пока у Вас нет ни одного сообщения.</Label>
             <Label class="text-center" textWrap="true">Как только у Вас появится активный диалог,</Label>
             <Label class="text-center" textWrap="true">он отобразится на этом экране</Label>
         </StackLayout>
@@ -51,32 +48,45 @@ module.exports = {
    computed: {
        chats() {
            let chatsArr = [];
-           Object.keys(store.getters.CHATS).forEach(key => {
-               store.getters.CHATS[key].id = key;
-               chatsArr.push(store.getters.CHATS[key]);
+           Object.keys(this.$store.getters.CHATS).forEach(key => {
+               this.$store.getters.CHATS[key].id = key;
+               chatsArr.push(this.$store.getters.CHATS[key]);
            });
            return chatsArr;
-       },
-       busy() {
-           if (store.getters.CHATS_STATUS === "Loading") {
-               return true;
-           }
-           return false;
        }
    },
    methods: {
-       onSwipe(args) {
-           console.log("SWIPE")
-           console.log(args.direction)
-           if (args.direction === 8){
-               store.dispatch('CHATS_REQUEST');
-           }
+       onNavigated() {
+           this.$store.commit('SCREEN', "ChatList");
+       },
+       onPullToRefreshInitiated({ object }) {
+           this.$store.dispatch('CHATS_REQUEST')
+               .catch((err) => {
+                   this.$errorHandler(err);
+               })
+               .finally(() => {
+                   object.notifyPullToRefreshFinished();
+               });
        },
        openChat(event){
-           store.commit('ACTIVE_CHAT_ID', event.item.sitepower_id);
-           store.dispatch('MESSAGES_REQUEST');
-           this.$navigateTo(this.$ChatBody,  {props: {chat: store.getters.CHATS[event.item.sitepower_id]}});
+           this.$store.commit('ACTIVE_CHAT_ID', event.item.sitepower_id);
+           setTimeout(() => {
+               if (this.$store.getters.MESSAGES_STATUS === "Loading") {
+                   this.$loader.show(this.$store.getters.INDICATOR_WHITE);
+               }
+           }, 500);
 
+           this.$store.dispatch('MESSAGES_REQUEST')
+               .then(() => {
+                   this.$navigateTo(this.$ChatBody,  {props: {chat: this.$store.getters.CHATS[event.item.sitepower_id]}});
+               })
+               .catch(err => {
+                   this.$errorHandler(err);
+               })
+               .finally(() => {
+                   this.$loader.hide();
+               })
+           ;
        },
        chatTime(chat) {
            return moment(chat.last_msg_created).locale('ru').calendar(null, {
@@ -90,22 +100,33 @@ module.exports = {
            });
        },
        logout() {
-           store.dispatch('AUTH_LOGOUT').then(() => {
+           this.$store.dispatch('AUTH_LOGOUT').then(() => {
                this.$navigateTo(this.$Login, {clearHistory: true});
            }).catch(err => {
-               // console.log("Error on logout");
-               // console.log(err);
+               this.$errorHandler(err)
            });
-
-
        },
        goto() {
            utilsModule.openUrl("https://sitepower.io");
        },
        about() {
-           this.$navigateTo(this.$About);       }
+           this.$navigateTo(this.$About);
+       }
    },
    mounted() {
-       store.dispatch('CHATS_REQUEST', {/*ти запроса*/}).then().catch(/*err => console.log(err.message)*/);
+       setTimeout(() => {
+           if (this.$store.getters.CHATS_STATUS === "Loading") {
+               this.$loader.show(this.$store.getters.INDICATOR_WHITE);
+           }
+       }, 500);
+
+       this.$store.dispatch('CHATS_REQUEST')
+           .catch((err) => {
+               this.$errorHandler(err)
+           })
+           .finally(() => {
+               this.$loader.hide();
+           })
+       ;
    }
 };

@@ -8,6 +8,7 @@ const formdata = require('nativescript-http-formdata');
 const platform = require("tns-core-modules/platform");
 const vibrate = require("nativescript-vibrate");
 
+
 let socketIO;
 let vibrator;
 
@@ -18,8 +19,9 @@ const ln = require("nativescript-local-notifications").LocalNotifications;
 if(TNS_ENV !== 'production') {
   axios.defaults.baseURL = 'http://10.0.2.2:3000';
 } else {
-  axios.defaults.baseURL = 'https://sitepower.herokuapp.com';
+  axios.defaults.baseURL = 'https://ws.sitepower.io';
 }
+axios.defaults.timeout = 15000;
 
 Vue.use(Vuex);
 
@@ -33,18 +35,45 @@ module.exports = new Vuex.Store({
       authStatus : ""
     },
     systemInfo: {
+      screen:"",
       chats: {},
       messages:[],
       chatsStatus : "",
       chatsError : "",
+      messagesStatus: "",
+      messagesError: "",
       activeChatId: "",
       activeChatPrintingTm: "",
       uploadStatus: "",
-      uploadError: ""
+      uploadError: "",
+      indicatorBlack: {
+        android: {
+          indeterminate: true,
+          color: '#000',
+          backgroundColor: '#fff',
+          dimBackground: true,
+          hideBezel: true
+        }
+      },
+      indicatorWhite: {
+        android: {
+          indeterminate: true,
+          color: '#fff',
+          backgroundColor: '#000',
+          dimBackground: true,
+          hideBezel: true
+        }
+      }
     }
   },
 
   getters: {
+    INDICATOR_BLACK: state => {
+      return state.systemInfo.indicatorBlack;
+    },
+    INDICATOR_WHITE: state => {
+      return state.systemInfo.indicatorWhite;
+    },
     USER_LOGGED_IN: state => {
       return state.userInfo.isLoggedIn;
     },
@@ -64,6 +93,8 @@ module.exports = new Vuex.Store({
     MESSAGES: state => {
       return state.systemInfo.messages
     },
+    MESSAGES_STATUS: state => state.systemInfo.messagesStatus,
+    SCREEN: state => state.systemInfo.screen,
   },
   mutations: {
     ACTIVE_CHAT_ID: (state, id) => {
@@ -83,14 +114,15 @@ module.exports = new Vuex.Store({
     },
     CHATS: (state, chats) => state.systemInfo.chats = chats,
     MESSAGES_STATUS:   (state, status, error) => {
-      state.systemInfo.chatsStatus = status;
-      state.systemInfo.chatsError = error;
+      state.systemInfo.messagesStatus = status;
+      state.systemInfo.messagesError = error;
     },
     MESSAGES: (state, messages) => state.systemInfo.messages = messages,
     UPLOAD_STATUS: (state, status, error) => {
       state.systemInfo.uploadStatus = status;
       state.systemInfo.uploadError = error;
     },
+    SCREEN: (state, screen) => state.systemInfo.screen = screen,
   },
   actions: {
     ACTIVE_CHAT_SEND: ({commit, state, dispatch}) => {
@@ -121,6 +153,7 @@ module.exports = new Vuex.Store({
         sendMessage.body = msg;
         sendMessage.type = "text";
         if (!socketIO) reject(new Error("No socket IO!!!"));
+        if (!socketIO.connected) socketIO.connect();
         socketIO.emit("send", sendMessage);
         resolve();
       })
@@ -136,6 +169,7 @@ module.exports = new Vuex.Store({
               sendMessage.link = msg.link;
               sendMessage.type = "link";
               if (!socketIO) reject(new Error("No socket IO!!!"));
+              if (!socketIO.connected) socketIO.connect();
               socketIO.emit("send", sendMessage);
               resolve();
           })
@@ -148,8 +182,10 @@ module.exports = new Vuex.Store({
             .then(res => {
               commit('MESSAGES_STATUS', "Success");
               commit('MESSAGES', res.data);
+              resolve();
             }).catch(err => {
-          commit('MESSAGES_STATUS', "Error", err.message);
+              commit('MESSAGES_STATUS', "Error", err.message);
+              reject(err);
         })
       })
     },
@@ -181,31 +217,28 @@ module.exports = new Vuex.Store({
         if (key.split('.')[0] === "sitepower"){
           if (!socketIO) {
               socketIO = new SocketIO(axios.defaults.baseURL, {path:'/socket.io', query: 'session_id=' +  cookies[key].split('.')[0].split(':')[1] + '&device_id=' + appSettings.getString("sitepower.token")}/*headers: {'Cookie': appSettings.getString("sitepower")}*/);
+              socketIO.on("receive",(receive_msg) => {
+                // console.log("receive");
+                // console.log(receive_msg);
+
+                const msg = receive_msg.msg;
+                const chat = receive_msg.chat;
+                if (!msg || !chat) return;
+
+                let chatItem, chatId;
+                chatId = msg.direction === "to_user" ? msg.sender_id : msg.recepient_id;
+                chatItem = state.systemInfo.chats[chatId];
+                if (chatItem) {
+                  // 1. Если это активный чат - пушаем в него сообщение
+                  chatId === state.systemInfo.activeChatId ? state.systemInfo.messages.push(msg) : vibrator.vibrate(500);
+                  // 2. Обновляем состояние чата
+                  Object.assign(chatItem, chat);
+                } else {
+                  dispatch('CHATS_REQUEST');
+                }
+              })
           }
-
-
           socketIO.connect();
-          // console.log("connect");
-          socketIO.on("receive",(receive_msg) => {
-            // console.log("receive");
-            // console.log(receive_msg);
-
-            const msg = receive_msg.msg;
-            const chat = receive_msg.chat;
-            if (!msg || !chat) return;
-
-            let chatItem, chatId;
-            chatId = msg.direction === "to_user" ? msg.sender_id : msg.recepient_id;
-            chatItem = state.systemInfo.chats[chatId];
-            if (chatItem) {
-              // 1. Если это активный чат - пушаем в него сообщение
-              chatId === state.systemInfo.activeChatId ? state.systemInfo.messages.push(msg) : vibrator.vibrate(300);
-              // 2. Обновляем состояние чата
-              Object.assign(chatItem, chat);
-            } else {
-              dispatch('CHATS_REQUEST');
-            }
-          })
         }
       });
     },
@@ -301,7 +334,7 @@ module.exports = new Vuex.Store({
                     commit('UPLOAD_STATUS', "Success")
                     resolve()
                   })
-                  .catch(() => {
+                  .catch((err) => {
                     commit('UPLOAD_STATUS', "Error")
                     reject(err)
                   });
@@ -322,6 +355,8 @@ axios.interceptors.request.use(config => {
 (error) => {
   return Promise.reject(error);
 });
+
+
 
 /* Firebase */
 

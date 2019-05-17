@@ -1,3 +1,5 @@
+const application = require("tns-core-modules/application");
+
 module.exports = {
     template: `
         <Page @navigatedTo="redirect" actionBarHidden="true">
@@ -9,7 +11,12 @@ module.exports = {
             </FlexboxLayout>
         </Page>
   `,
-    methods: {
+   data() {
+       return {
+           isLoaded : false
+       };
+   },
+   methods: {
         redirect () {
             this.$store.dispatch('AUTH_USER')
                 .then(() => {
@@ -17,7 +24,37 @@ module.exports = {
                 })
                 .catch((err) => {
                     this.$navigateTo(this.$Login,  {clearHistory: true});
+                })
+                .finally(() =>{
+                    this.isLoaded = true;
+                    this.$loader.hide();
                 });
         }
-    }
+   },
+   created() {
+        setTimeout(() => {
+            if (!this.isLoaded) {
+                this.$loader.show(this.$store.getters.INDICATOR_BLACK);
+            }
+        }, 500);
+       application.on(application.resumeEvent, (args ) => {
+           try {
+               this.$store.dispatch('CHATS_REQUEST');
+               this.$store.dispatch('MESSAGES_REQUEST');
+               this.$store.dispatch('SOCKET_LOGIN');
+               this.$store.dispatch('AUTH_USER')
+                   .then(() => {
+
+                   })
+                   .catch((err) => {
+                       if (this.$store.getters("SCREEN") !== "Login") {
+                           this.$navigateTo(this.$Login,  {clearHistory: true});
+                       }
+                   })
+           } catch (e) {
+               console.log(e);
+           }
+
+       });
+   }
 };

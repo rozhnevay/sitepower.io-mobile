@@ -1,4 +1,4 @@
-const store = require('../store');
+
 const moment = require('moment');
 const imageSourceModule = require("tns-core-modules/image-source");
 
@@ -8,14 +8,13 @@ const platform = require("tns-core-modules/platform");
 const dialogs = require("tns-core-modules/ui/dialogs");
 
 module.exports = {
-    data() {
-        return {
-            msg: ""
-        };
-    },
     template: `
-    <Page class="chat" >
-        <ActionBar :title="chat.name" class="action-bar"><NavigationButton text="Назад" android.systemIcon="ic_menu_back" @tap="$navigateBack"/>
+    <Page class="chat" @navigatedTo="onNavigated">
+         <ActionBar  class="action-bar"><NavigationButton text="Назад" android.systemIcon="ic_menu_back" @tap="$navigateBack"/>
+          <StackLayout orientation="vertical" horizontalAlignment="left">
+              <Label :text="chat.name"/>
+              <Label :text="chat.origin + ' ' + chat.region + ''"/>
+          </StackLayout>
          <ActionItem @tap="onShare"
               ios.systemIcon="9" ios.position="left"
               android.systemIcon="ic_dialog_email" android.position="actionBar"></ActionItem>
@@ -23,14 +22,15 @@ module.exports = {
               ios.systemIcon="16" ios.position="right"
               text="Удалить" android.systemIcon="ic_menu_delete" android.position="actionBar">
           </ActionItem>
+         
         </ActionBar>
         <FlexboxLayout flexDirection="column" justifyContent="flex-end" height="100%" class="messages">
-            <ScrollView ref="scrollView"> 
+            <ScrollView @loaded="onLoadFinish" ref="scrollView"> 
                 <FlexboxLayout flexDirection="column" justifyContent="flex-end" >
                             <!--<FlexboxLayout v-if="dateSeparator(msg, index)" flexDirection="row" row="0" col="0" justifyContent="center" flexWrap="wrap">-->
                                 <!--<Label textWrap="true" alignSelf="stretch" height="30" width="100" class="date">{{dateSeparator(msg, index)}}</Label>-->
                             <!--</FlexboxLayout>-->
-                            <FlexboxLayout v-for="(msg, index) in messages" flexDirection="column" justifyContent="flex-end">
+                            <FlexboxLayout v-if="isLoaded" v-for="(msg, index) in messages" flexDirection="column" justifyContent="flex-end">
                                 <Label v-if="dateSeparator(msg, index)" height="auto" alignSelf="center" textWrap="true" >{{dateSeparator(msg, index)}}</Label>
                                 <FlexboxLayout v-if="ownerSeparator(msg, index)" flexDirection="row" :justifyContent="[ msg.direction == 'from_user' ?  'flex-end' : 'flex' ]" >
                                     <Label textWrap="true" class="text-muted">{{ownerSeparator(msg, index)}}</Label>
@@ -62,49 +62,72 @@ module.exports = {
         </FlexboxLayout>
     </Page>
   `,
+    data() {
+        return {
+            msg: "",
+            isLoaded: false
+        };
+    },
     computed: {
         messages() {
-            return store.getters.MESSAGES;
+            return this.$store.getters.MESSAGES;
         },
     },
     props: ['chat'],
     methods: {
+        onNavigated() {
+            this.$store.commit('SCREEN', "ChatBody");
+        },
         onDelete() {
-            let that = this;
             dialogs.prompt({
                 title: "",
                 message: "Удалить диалог?",
                 okButtonText: "Удалить",
                 neutralButtonText: "В СПАМ!",
                 cancelButtonText: "Отмена"
-            }).then(function (res) {
-                console.log("Dialog closed!");
-                console.log(res);
+            }).then(res => {
 
                 if (res.result) {
-                    store.dispatch('ACTIVE_CHAT_DELETE', "DELETED").then(() => {
-                        store.dispatch('CHATS_REQUEST').then(() => {
-                            console.log("qqq");
-                            that.$navigateTo(that.$ChatList, {clearHistory: true})
-                        }).catch(err => console.log(err.message))
-                    }).catch(err => console.log(err.message));
+                    this.$store.dispatch('ACTIVE_CHAT_DELETE', "DELETED")
+                      .then(() => {
+                          this.$store.dispatch('CHATS_REQUEST').then(() => {
+                              this.$navigateTo(this.$ChatList, {clearHistory: true})
+                        }).catch(err => {
+                            this.$errorHandler(err);
+                        })
+                    }).catch(err => {
+                        this.$errorHandler(err);
+                    });
                 } else if (res.result === undefined) {
-                    store.dispatch('ACTIVE_CHAT_DELETE', "SPAM").then(() => {
-                        store.dispatch('CHATS_REQUEST').then(() => that.$navigateTo(that.$ChatList, {clearHistory: true})).catch(err => console.log(err.message))
-                    }).catch(err => console.log(err.message));
+                    this.$store.dispatch('ACTIVE_CHAT_DELETE', "SPAM").then(() => {
+                        this.$store.dispatch('CHATS_REQUEST')
+                            .then(() => this.$navigateTo(this.$ChatList, {clearHistory: true}))
+                            .catch(err => {
+                                this.$errorHandler(err);
+                            })
+                    }).catch(err => {
+                        this.$errorHandler(err);
+                    });
                 }
             });
         },
         onShare() {
             dialogs.confirm({
-                title: "",
+                title: "Отправка диалога",
                 message: "Отправить диалог на Ваш email?",
                 okButtonText: "Ок",
                 cancelButtonText: "Отмена"
-            }).then(function (result) {
-                console.log("Dialog closed!");
+            }).then((result) => {
                 if (result) {
-                    store.dispatch('ACTIVE_CHAT_SEND');
+                    this.$store.dispatch('ACTIVE_CHAT_SEND')
+                        .then(() => {
+                            dialogs.alert({
+                                title: "Отправка диалога",
+                                message: "Диалог успешно отправлен!",
+                                okButtonText: "OK"
+                            })
+                        })
+                        .catch((err) => this.$errorHandler(err));
                 }
             });
         },
@@ -126,31 +149,35 @@ module.exports = {
                     }
                 });
             }
-
-
             return null;
         },
         ownerSeparator(msg, index){
             const prevMsg = this.messages[index-1]
 
             let prevMsgOwner;
-            if (!prevMsg) prevMsgOwner = "NONE";
-            else if (prevMsg.operator_name) prevMsgOwner = prevMsg.operator_id === store.getters.USER_ID ? "Вы" : prevMsg.operator_name;
+            if (!prevMsg) {
+                prevMsgOwner = "NONE";
+            } else if (prevMsg.operator_name){
+                prevMsgOwner = prevMsg.operator_id === this.$store.getters.USER_ID ? "Вы" : prevMsg.operator_name;
+            }
             else prevMsgOwner = "Посетитель";
-            const msgOwner = msg.operator_name ? msg.operator_id === store.getters.USER_ID ? "Вы" : msg.operator_name : "Посетитель";
+
+            const msgOwner = msg.operator_name ? msg.operator_id === this.$store.getters.USER_ID ? "Вы" : msg.operator_name : "Посетитель";
             if (msgOwner !== prevMsgOwner) return msgOwner;
 
             return null;
         },
         send() {
-            store.dispatch('SEND', this.msg).then(()=> this.msg = "").catch(/*err => console.log(err.message)*/);
+            this.$store.dispatch('SEND', this.msg).then(()=> this.msg = "").catch(err => this.errorHandler(err));
         },
         imageTap(msg) {
             if (msg.link ==="") return;
-            msg.link = msg.link.replace("localhost", "10.0.2.2"); /*TODO: убрать*/
+            msg.link = msg.link.replace("localhost", "10.0.2.2");
             utilsModule.openUrl(msg.link);
         },
         selectFile() {
+            console.log("indicator start");
+            this.$loader.show(this.$store.getters.INDICATOR_BLACK);
             let options = {
                 android: {
                     isCaptureMood: false,
@@ -166,7 +193,7 @@ module.exports = {
             let mediafilepicker = new mPicker.Mediafilepicker();
             mediafilepicker.openImagePicker(options);
 
-            mediafilepicker.on("getFiles", function (res) {
+            mediafilepicker.on("getFiles", res => {
                 res.object.get('results').forEach(item => {
                     const img = imageSourceModule.fromFile(item.file);
                     const base64String = img.toBase64String("png");
@@ -175,7 +202,14 @@ module.exports = {
                     }
 
                     const imgBinary = android.util.Base64.decode(base64String, android.util.Base64.DEFAULT);
-                    store.dispatch('UPLOAD', imgBinary).then(() => console.log("OK")).catch(err => console.log(err))
+                    this.$store.dispatch('UPLOAD', imgBinary)
+                        .catch(err => {
+                            this.$errorHandler(err);
+                        })
+                        .finally(() => {
+                            console.log("indicator end");
+                            this.$loader.hide();
+                        })
 
                 })
             });
@@ -184,22 +218,30 @@ module.exports = {
             });
         },
         scrollDown() {
-            const that = this;
             setTimeout(()=>{
                 const mScroller = this.$refs.scrollView;
+                if (!mScroller || !mScroller.nativeView) return;
+                if (!platform) return;
                 mScroller.nativeView.scrollToVerticalOffset(99999, false)
                 if (platform.isAndroid) {
                     mScroller.nativeView.android.setVerticalScrollBarEnabled(false);
                 }
             },150);
+        },
+        onLoadFinish() {
+            this.scrollDown();
+            this.isLoaded = true;
+            this.$loader.hide();
         }
+    },
+    mounted() {
+      console.log("hrhrhr");
     },
     watch: {
         messages: function () {
             this.scrollDown();
         }
     },
-    mounted(){
-        this.scrollDown();
-    }
+
+
 };
